@@ -1,0 +1,81 @@
+PLANNER DASHBOARD - OPEN QUESTIONS FOR FUTURE DEVELOPMENT
+==========================================================
+
+The dashboard (dashboard.html) works as-is. These questions are about things
+I guessed while turning the spreadsheet (reference/todo_framework.xlsx) into
+the dashboard. Answer whichever you care about and the next version can be
+adjusted to match.
+
+
+1. DAILIES SHUFFLE
+   The spreadsheet shuffles dailies by date: rank 1-9 tasks stay near their
+   rank (plus or minus 1.5), and rank 10+ tasks go somewhere random. The
+   dashboard uses the same formula.
+   - Is the point of the shuffle variety, or something else? Would you rather
+     set a fixed order, or have the order follow the clock (morning tasks
+     first)?
+   - Should optional (rank 10+) tasks be hidden on busy days, for example days
+     with a deadline or a work day?
+   - Should some dailies only happen on certain weekdays (e.g. gym Mon/Wed/Fri)?
+
+2. "RIGHT NOW" CARD
+   In the spreadsheet you moved through the list by changing a number by hand.
+   The dashboard shows the first unfinished daily and has Done / Skip buttons.
+   - Should "right now" also include deadline work and the planner time slots
+     for the current hour, not just dailies?
+   - Would a timer for the task's minutes be useful?
+
+3. DEADLINES
+   - Do deadlines need a time of day, or is the date enough?
+   - Do any deadlines repeat (weekly reports, monthly bills, lessons)? Right
+     now each one has to be entered separately.
+   - Should a big deadline be breakable into smaller steps/milestones with
+     their own dates (e.g. "learn next tense" -> vocab, drills, quiz)?
+   - "Due soon" is set to 7 days, "urgent" is 2 days or less. Do those
+     thresholds suit you, and should they differ per category (work vs hobby)?
+   - What should happen to finished deadlines: keep them forever (hidden
+     unless "Show done" is checked), archive them, or delete them after a while?
+
+4. ROTATING WORK SCHEDULE
+   The week sheet showed an 8-period cycle that moves forward one period each
+   weekday. I assumed that from your example. Set the real starting point in
+   Settings.
+   - What does the period number mean (a shift, a class period, a team)?
+     Should each period have its own label or work hours instead of a number?
+   - Do holidays and days off pause the rotation (current behavior) or does
+     the rotation keep counting through them?
+   - Are work hours the same every day? The sheet showed 8:00 to about 3:30 on
+     weekdays.
+
+5. PLANNER
+   - The planner starts on today and shows 14 days. Your sheet started on a
+     Saturday. Do you want it to always start on a particular weekday?
+   - Should planned time slots be able to span several slots (a 2-hour block)
+     and be dragged around, instead of labeling 30-minute slots one at a time?
+   - Should the "Work on:" hints turn into real planned slots automatically?
+
+6. HOBBIES / CATEGORIES
+   The dashboard starts with Work, Language learning and Hobbies.
+   - What are your actual hobbies/categories? Should each hobby have its own
+     dailies, or is one shared dailies list fine?
+   - Would you like to track progress over time (minutes spent per category
+     per week, streak history, a chart)?
+
+7. DATA AND DEVICES
+   Everything is saved in this browser's local storage, as you asked. That
+   means it lives only in one browser on one computer, and clearing browser
+   data erases it. (Settings has Download/Restore backup as a safety net.)
+   - Do you use more than one computer or your phone? If so, should the data
+     sync somehow later, or is one browser enough?
+   - Would you like a reminder to download a backup now and then?
+
+8. REMINDERS
+   - Would browser notifications help (e.g. "deadline tomorrow", "you haven't
+     done your dailies")? They only work while the page is open.
+   - Should the dashboard be able to export deadlines to a calendar (.ics file)
+     for Apple/Google Calendar?
+
+9. LOOK AND FEEL
+   - Is the panel order right (Right now, Deadlines, Dailies, Planner), or is
+     something more important than its spot suggests?
+   - Keep following your system's light/dark setting, or add a switch?
