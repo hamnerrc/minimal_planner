@@ -1,81 +1,92 @@
-PLANNER DASHBOARD - OPEN QUESTIONS FOR FUTURE DEVELOPMENT
-==========================================================
+PLANNER - OPEN QUESTIONS FOR FUTURE DEVELOPMENT
+================================================
 
-The dashboard (dashboard.html) works as-is. These questions are about things
-I guessed while turning the spreadsheet (reference/todo_framework.xlsx) into
-the dashboard. Answer whichever you care about and the next version can be
-adjusted to match.
+Design rule: complexity in the backend, simplicity at the point of action.
+RN shows one task and a Done button. Configuration holds the knobs. Meta
+holds the numbers.
+
+These are the places where I had to guess. Answer the ones you care about
+and the next version can follow your answers.
 
 
-1. DAILIES SHUFFLE
-   The spreadsheet shuffles dailies by date: rank 1-9 tasks stay near their
-   rank (plus or minus 1.5), and rank 10+ tasks go somewhere random. The
-   dashboard uses the same formula.
-   - Is the point of the shuffle variety, or something else? Would you rather
-     set a fixed order, or have the order follow the clock (morning tasks
-     first)?
-   - Should optional (rank 10+) tasks be hidden on busy days, for example days
-     with a deadline or a work day?
-   - Should some dailies only happen on certain weekdays (e.g. gym Mon/Wed/Fri)?
+1. RN: WHAT COUNTS AS "NECESSARY TO ACT"?
+   RN currently shows the task name, "about N min", any notes, and Done.
+   After Done, a small "Undo" link appears for 8 seconds.
+   - Keep the duration line and notes, or show the name only?
+   - Is the brief Undo link acceptable, or should mistakes be fixed somewhere
+     else (e.g. Meta)?
+   - Should there be any way to defer a task ("not now")? Right now the only
+     way past a task is Done. A skip would mean the backend has to decide
+     where the task goes: end of queue, tomorrow, or dropped.
+   - When nothing is available, RN says "Nothing right now / Next task at
+     6:00 pm" or "Done for today". Is the next-time hint fine, or too much?
 
-2. "RIGHT NOW" CARD
-   In the spreadsheet you moved through the list by changing a number by hand.
-   The dashboard shows the first unfinished daily and has Done / Skip buttons.
-   - Should "right now" also include deadline work and the planner time slots
-     for the current hour, not just dailies?
-   - Would a timer for the task's minutes be useful?
+2. QUEUE STABILITY VS. EDITS
+   Today's queue is locked when the page first opens that day. Mid-day:
+   new tasks join the END, deleted or no-longer-available tasks drop out,
+   and priority changes wait until tomorrow.
+   - Is that right, or should a new priority-1 task jump to the front?
+   - Should there be a manual "rebuild today's queue" button in
+     Configuration for when you change a lot at once?
 
-3. DEADLINES
-   - Do deadlines need a time of day, or is the date enough?
-   - Do any deadlines repeat (weekly reports, monthly bills, lessons)? Right
-     now each one has to be entered separately.
-   - Should a big deadline be breakable into smaller steps/milestones with
-     their own dates (e.g. "learn next tense" -> vocab, drills, quiz)?
-   - "Due soon" is set to 7 days, "urgent" is 2 days or less. Do those
-     thresholds suit you, and should they differ per category (work vs hobby)?
-   - What should happen to finished deadlines: keep them forever (hidden
-     unless "Show done" is checked), archive them, or delete them after a while?
+3. UNFINISHED TASKS
+   At midnight, whatever wasn't done is simply counted as missed (it shows
+   in Meta's rates). Repeating tasks come back the next available day.
+   One-time tasks stay until done.
+   - Should a missed repeating task get a priority boost the next day, or
+     carry over?
+   - Should one-time tasks that keep getting missed climb in priority?
 
-4. ROTATING WORK SCHEDULE
-   The week sheet showed an 8-period cycle that moves forward one period each
-   weekday. I assumed that from your example. Set the real starting point in
-   Settings.
-   - What does the period number mean (a shift, a class period, a team)?
-     Should each period have its own label or work hours instead of a number?
-   - Do holidays and days off pause the rotation (current behavior) or does
-     the rotation keep counting through them?
-   - Are work hours the same every day? The sheet showed 8:00 to about 3:30 on
-     weekdays.
+4. PRIORITY AND RANDOMIZATION
+   Kept from the spreadsheet: priority 1-9 shifts by up to ±1.5 per day;
+   10+ is optional and placed randomly; seeded by the date and task name.
+   - Should some tasks be pinned to a fixed spot (always first)?
+   - Should tasks be able to depend on each other (B only after A)?
+   - Due dates add 1 rank per day inside the window (default 7 days). Is that
+     the right strength?
 
-5. PLANNER
-   - The planner starts on today and shows 14 days. Your sheet started on a
-     Saturday. Do you want it to always start on a particular weekday?
-   - Should planned time slots be able to span several slots (a 2-hour block)
-     and be dragged around, instead of labeling 30-minute slots one at a time?
-   - Should the "Work on:" hints turn into real planned slots automatically?
+5. DURATIONS AND THE DAILY BUDGET
+   Total budget defaults to 120 min on work days and 240 on days off.
+   Priority tasks are always queued even if they exceed it. Optional tasks
+   only fill what's left.
+   - Should the budget instead be calculated from free time (waking hours
+     minus work hours)?
+   - Should Meta's measured times automatically correct the estimates?
+     (Meta already shows "actual vs. estimate".)
 
-6. HOBBIES / CATEGORIES
-   The dashboard starts with Work, Language learning and Hobbies.
-   - What are your actual hobbies/categories? Should each hobby have its own
-     dailies, or is one shared dailies list fine?
-   - Would you like to track progress over time (minutes spent per category
-     per week, streak history, a chart)?
+6. AVAILABILITY
+   Each task can be limited by weekdays, a time window, "not during work
+   hours", rotation periods, a start date, and an end/due date.
+   - What does the rotation period number mean in real life (a shift, a
+     class period)? Would named periods or per-period work hours help?
+   - Do days off pause the rotation (current behavior) or not?
+   - Are there other kinds of availability you need: every other day, X
+     times per week, monthly, only after a certain other task?
+   - One-time tasks with a due date: is Done "finished for good" (current),
+     or do some need several sessions before they're finished?
 
-7. DATA AND DEVICES
-   Everything is saved in this browser's local storage, as you asked. That
-   means it lives only in one browser on one computer, and clearing browser
-   data erases it. (Settings has Download/Restore backup as a safety net.)
-   - Do you use more than one computer or your phone? If so, should the data
-     sync somehow later, or is one browser enough?
-   - Would you like a reminder to download a backup now and then?
+7. META
+   It currently tracks tasks done per day, completion rate, done per active
+   day, typical time per task, actual vs. estimate, a per-task table, and
+   today's log. Time is measured from when a task appears on RN to Done.
+   - Is "appeared on screen → Done" a fair measure? If you open RN and walk
+     away, the time is inflated (capped at 4 h). A Start button would be more
+     accurate but adds a step at the point of action.
+   - Are there numbers you want that aren't there: time of day you're most
+     productive, streaks, per-category totals?
 
-8. REMINDERS
-   - Would browser notifications help (e.g. "deadline tomorrow", "you haven't
-     done your dailies")? They only work while the page is open.
-   - Should the dashboard be able to export deadlines to a calendar (.ics file)
-     for Apple/Google Calendar?
+8. WHAT HAPPENED TO THE FIRST VERSION'S FEATURES
+   The first dashboard had a deadline board, a 14-day planner grid with
+   time slots, and per-day plan notes. They were left out to fit the
+   three-tab design. Deadlines are now one-time tasks with a due date.
+   Open deadlines, dailies and the "important" list carry over automatically.
+   Events, planner notes and time-slot labels don't.
+   - Do you want any of those back, e.g. a calendar view inside Meta or
+     Configuration?
 
-9. LOOK AND FEEL
-   - Is the panel order right (Right now, Deadlines, Dailies, Planner), or is
-     something more important than its spot suggests?
-   - Keep following your system's light/dark setting, or add a switch?
+9. DATA AND DEVICES
+   Local browser storage only, as requested. One browser on one computer;
+   clearing browser data erases it (backup download/restore is in
+   Configuration).
+   - Will you ever want this on your phone too? That would need some form
+     of sync, which is a bigger decision.

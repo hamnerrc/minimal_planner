@@ -1,40 +1,53 @@
-# Planner Dashboard
+# Planner
 
-A personal deadline and daily-routine dashboard. Open `dashboard.html` in any
-browser (double-click it). No install, no server, no internet needed.
+Complexity in the backend, simplicity at the point of action.
 
-Everything you enter is saved in your browser's local storage, on this computer
-only. Use **Settings → Download backup** to keep a copy or move it to another browser.
+Open `dashboard.html` in a browser (double-click it). No install, no server.
+Everything is saved in this browser's local storage, on this computer only.
 
-## Layout
+## Tabs
+
+- **RN**: the one task to do right now and a **Done** button. Nothing else.
+- **Configuration**: add/remove tasks; set priority, duration, and availability;
+  the work schedule; a "How the queue is built" view for checking the engine.
+- **Meta**: tasks done per day, completion rate, time per task vs. estimate.
+
+## How the queue works (`assets/js/engine.js`)
+
+1. The first time the page opens each day, it builds **today's queue** and saves it.
+2. Pressing Done records progress **separately** from the queue. Nothing is ever
+   reshuffled by clicking.
+3. Order is the spreadsheet's date-seeded shuffle: priority 1–9 stays near its
+   rank (±1.5), and 10+ (optional) lands at random. The same day always gives the same order.
+4. Due dates boost priority as they approach (1 rank per day inside the "due soon" window).
+5. Availability filters what can be queued on a given day: weekdays, start date,
+   end/due date, and rotation periods.
+6. Optional tasks are only queued while the day's total minutes fit the time budget.
+7. Time windows ("not before / not after", "not during work hours") don't
+   reorder the queue. They only decide whether the next task can be shown now.
+   If it can't, RN shows the next open one, or "Nothing right now".
+8. Mid-day edits: new tasks join the end of today's queue, and deleted ones drop out.
+   Priority changes take effect tomorrow.
+
+## Files
 
 ```
-dashboard.html            the page you open
-assets/css/dashboard.css  all styling (light + dark mode)
-assets/js/dates.js        date helpers
-assets/js/schedule.js     daily shuffle + rotating work schedule (ported from the spreadsheet)
-assets/js/store.js        saving/loading in localStorage, backup/restore
-assets/js/app.js          draws the panels and handles clicks
-reference/todo_framework.xlsx   the original spreadsheet framework
-info.txt                  open questions for future development
+dashboard.html               the page you open
+assets/css/dashboard.css     styling (light + dark)
+assets/js/dates.js           date helpers
+assets/js/dom.js             tiny element-building helper
+assets/js/store.js           localStorage, data shape, backup/restore, migration
+assets/js/engine.js          queue building, availability, rotation, progress
+assets/js/views/rn.js        RN tab
+assets/js/views/config.js    Configuration tab
+assets/js/views/meta.js      Meta tab
+assets/js/app.js             tab switching, timers, wiring
+reference/todo_framework.xlsx  the original spreadsheet framework
+info.txt                     open questions for future development
 ```
 
-## How it maps to the original spreadsheet
+## Data
 
-| Spreadsheet         | Dashboard |
-|---------------------|-----------|
-| `rn` sheet (index into the sorted list) | **Right now** card: shows the next unfinished daily, with Done / Skip |
-| `rn` "sort of a dashboard" (category + due date) | **Deadlines** panel: one column per category, color-coded by urgency |
-| `todo` sheet (time, task, rank, shuffled order) | **Today's dailies**: same rank rule (1–9 priority, 10+ optional) and the same date-seeded shuffle formula |
-| `todo` "important non quest" | **Important, not daily** checklist |
-| `week` sheet (14 days, rotation, due/event, plan, time slots, work block) | **Planner** at the bottom |
-
-## What's new compared with the spreadsheet
-
-- Check off dailies; progress and time remaining update live; streaks (🔥) per daily
-- Deadlines get urgency colors (overdue, ≤2 days, due soon), countdowns, notes, and a done state
-- Deadlines and events show up on their day in the planner automatically
-- Planner shows "Work on: …" under days leading up to a deadline
-- The work rotation is calculated, not typed. Mark a day off and the rotation pauses
-- Categories, work hours, work days, and the rotation cycle are all editable in Settings
-- Dark mode follows your system setting; the layout works on a phone
+Stored under the localStorage key `planner-dashboard-v2`. Data from the first
+version (`planner-dashboard-v1`) is brought over automatically the first time
+and left in place. Configuration → Your data has backup download/restore.

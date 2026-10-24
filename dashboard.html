@@ -3,168 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Planner Dashboard</title>
+  <title>Planner</title>
   <link rel="stylesheet" href="assets/css/dashboard.css">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <h1>Planner</h1>
-      <p class="muted" id="today-label"></p>
-    </div>
-    <div class="topbar-actions">
-      <button class="btn" id="add-deadline-btn">+ Deadline / event</button>
-      <button class="btn ghost" id="settings-btn">Settings</button>
-    </div>
-  </header>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#rn">RN</a>
+    <a href="#config">Configuration</a>
+    <a href="#meta">Meta</a>
+  </nav>
 
-  <main>
-    <!-- Right now: replaces the "rn" sheet -->
-    <section class="row now-row">
-      <div class="card now-card" id="now-card"></div>
-      <div class="stats" id="stats"></div>
-    </section>
+  <main id="view"></main>
 
-    <section class="row main-row">
-      <!-- Deadlines by category: replaces "sort of a dashboard" -->
-      <div class="card deadlines-card">
-        <div class="card-head">
-          <h2>Deadlines</h2>
-          <div class="card-tools">
-            <select id="deadline-filter" aria-label="Filter by category"></select>
-            <label class="check"><input type="checkbox" id="show-done"> Show done</label>
-          </div>
-        </div>
-        <div id="deadline-columns" class="deadline-columns"></div>
-      </div>
-
-      <div class="side-col">
-        <!-- Dailies: replaces the "todo" sheet -->
-        <div class="card">
-          <div class="card-head">
-            <h2>Today's dailies</h2>
-            <button class="btn ghost small" id="edit-dailies-btn">Edit</button>
-          </div>
-          <div id="dailies"></div>
-        </div>
-
-        <!-- "important non quest" list -->
-        <div class="card">
-          <div class="card-head"><h2>Important, not daily</h2></div>
-          <ul id="notes" class="plain-list"></ul>
-          <form id="note-form" class="inline-form">
-            <input id="note-input" placeholder="Add an item…" autocomplete="off">
-            <button class="btn small">Add</button>
-          </form>
-        </div>
-      </div>
-    </section>
-
-    <!-- Two-week planner: replaces the "week" sheet -->
-    <section class="card planner-card">
-      <div class="card-head">
-        <h2>Planner</h2>
-        <div class="card-tools">
-          <button class="btn ghost small" id="planner-prev" aria-label="Previous week">&larr;</button>
-          <button class="btn ghost small" id="planner-today">Today</button>
-          <button class="btn ghost small" id="planner-next" aria-label="Next week">&rarr;</button>
-        </div>
-      </div>
-      <p class="muted hint">Click a time slot to label it. Click a work-rotation cell to mark the day off.</p>
-      <div class="planner-scroll"><table id="planner" class="planner"></table></div>
-    </section>
-  </main>
-
-  <!-- Add / edit a deadline or event -->
-  <dialog id="deadline-dialog">
-    <form method="dialog" id="deadline-form">
-      <h2 id="deadline-dialog-title">New deadline</h2>
-      <label>Title <input name="title" required autocomplete="off"></label>
-      <div class="field-row">
+  <!-- Add / edit a task (used by Configuration) -->
+  <dialog id="task-dialog">
+    <form method="dialog" id="task-form">
+      <h2 id="task-dialog-title">New task</h2>
+      <label>Task <input name="name" required autocomplete="off"></label>
+      <div class="form-grid">
         <label>Type
           <select name="kind">
-            <option value="deadline">Deadline (due)</option>
-            <option value="event">Event</option>
+            <option value="repeat">Repeats</option>
+            <option value="once">One time</option>
           </select>
         </label>
-        <label>Date <input type="date" name="due"></label>
+        <label>Priority <input type="number" name="priority" min="1" step="any" required></label>
+        <label>Minutes <input type="number" name="minutes" min="0" step="5" required></label>
       </div>
-      <label>Category <select name="categoryId"></select></label>
-      <label>Notes <textarea name="notes" rows="3"></textarea></label>
-      <label class="check"><input type="checkbox" name="done"> Done</label>
-      <div class="dialog-actions">
-        <button type="button" class="btn danger ghost" id="deadline-delete">Delete</button>
-        <span class="spacer"></span>
-        <button type="button" class="btn ghost" value="cancel" id="deadline-cancel">Cancel</button>
-        <button class="btn" value="save">Save</button>
-      </div>
-    </form>
-  </dialog>
+      <p class="muted small">Priority 1–9: always queued, near that spot. 10+: optional, fills spare time.</p>
 
-  <!-- Edit the list of dailies -->
-  <dialog id="dailies-dialog">
-    <form method="dialog" id="dailies-form">
-      <h2>Edit dailies</h2>
-      <p class="muted">Rank 1–9 = priority (kept near that spot, shuffled slightly each day). Rank 10+ = optional (placed randomly).</p>
-      <div class="dailies-edit-head"><span>Task</span><span>Min</span><span>Rank</span><span></span></div>
-      <div id="dailies-edit"></div>
-      <button type="button" class="btn ghost small" id="daily-add">+ Add daily</button>
-      <div class="dialog-actions">
-        <span class="spacer"></span>
-        <button type="button" class="btn ghost" id="dailies-cancel">Cancel</button>
-        <button class="btn" value="save">Save</button>
-      </div>
-    </form>
-  </dialog>
+      <fieldset class="weekdays">
+        <legend>Days</legend>
+        <label class="check"><input type="checkbox" name="day" value="0"> Sun</label>
+        <label class="check"><input type="checkbox" name="day" value="1"> Mon</label>
+        <label class="check"><input type="checkbox" name="day" value="2"> Tue</label>
+        <label class="check"><input type="checkbox" name="day" value="3"> Wed</label>
+        <label class="check"><input type="checkbox" name="day" value="4"> Thu</label>
+        <label class="check"><input type="checkbox" name="day" value="5"> Fri</label>
+        <label class="check"><input type="checkbox" name="day" value="6"> Sat</label>
+      </fieldset>
 
-  <!-- Settings -->
-  <dialog id="settings-dialog">
-    <form method="dialog" id="settings-form">
-      <h2>Settings</h2>
-
-      <h3>Rotating work schedule</h3>
-      <div class="field-row">
-        <label>On this date… <input type="date" name="rotationAnchor" required></label>
-        <label>…it's period <input type="number" name="anchorPeriod" min="1" required></label>
-        <label>Periods in cycle <input type="number" name="cycleLength" min="1" required></label>
+      <div class="form-grid">
+        <label>Not before <input type="time" name="from"></label>
+        <label>Not after <input type="time" name="to"></label>
       </div>
-      <fieldset class="weekdays" id="workdays-field"><legend>Work days</legend></fieldset>
-      <div class="field-row">
-        <label>Work starts <input type="time" name="workStart" step="1800"></label>
-        <label>Work ends <input type="time" name="workEnd" step="1800"></label>
-      </div>
+      <label class="check"><input type="checkbox" name="avoidWork"> Not during work hours</label>
+      <fieldset class="weekdays" id="task-periods"></fieldset>
 
-      <h3>Planner</h3>
-      <div class="field-row">
-        <label>Day starts <input type="time" name="dayStart" step="1800"></label>
-        <label>Day ends <input type="time" name="dayEnd" step="1800"></label>
-        <label>Days shown <input type="number" name="plannerDays" min="1" max="28"></label>
+      <div class="form-grid">
+        <label>Starts on <input type="date" name="start"></label>
+        <label id="task-due-label">Due date <input type="date" name="due"></label>
       </div>
-      <label>"Due soon" means within <input type="number" name="soonDays" min="1" class="narrow"> days</label>
-
-      <h3>Categories</h3>
-      <div id="categories-edit"></div>
-      <button type="button" class="btn ghost small" id="category-add">+ Add category</button>
-
-      <h3>Your data</h3>
-      <p class="muted">Saved only in this browser on this computer. Download a backup if you want to move it or keep it safe.</p>
-      <div class="field-row">
-        <button type="button" class="btn ghost small" id="backup-btn">Download backup</button>
-        <label class="btn ghost small file-btn">Restore backup<input type="file" accept="application/json" id="restore-input" hidden></label>
-        <button type="button" class="btn danger ghost small" id="reset-btn">Erase everything</button>
-      </div>
+      <label>Notes (shown on RN) <textarea name="notes" rows="2"></textarea></label>
 
       <div class="dialog-actions">
+        <button type="button" class="btn ghost danger" id="task-delete">Delete</button>
         <span class="spacer"></span>
-        <button type="button" class="btn ghost" id="settings-cancel">Cancel</button>
-        <button class="btn" value="save">Save</button>
+        <button type="button" class="btn ghost" id="task-cancel">Cancel</button>
+        <button class="btn">Save</button>
       </div>
     </form>
   </dialog>
 
   <script src="assets/js/dates.js"></script>
-  <script src="assets/js/schedule.js"></script>
+  <script src="assets/js/dom.js"></script>
   <script src="assets/js/store.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/views/rn.js"></script>
+  <script src="assets/js/views/config.js"></script>
+  <script src="assets/js/views/meta.js"></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

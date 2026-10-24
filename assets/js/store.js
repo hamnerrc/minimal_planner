@@ -1,79 +1,121 @@
-// Everything you enter is kept in this browser's localStorage. Nothing is
-// sent anywhere. Clearing site data for this file erases it, so use
-// Settings -> Download backup now and then.
+// Everything is kept in this browser's localStorage, on this computer only.
+//
+// Saved shape:
+//   tasks     what you configured (name, priority, minutes, availability)
+//   settings  work schedule, rotation, daily budget
+//   queues    { 'YYYY-MM-DD': { ids: [taskId...], at } }  the frozen order for each day
+//   progress  { 'YYYY-MM-DD': { shown: {id: time}, done: {id: {at, shown, name, minutes}} } }
 const Store = (() => {
-  const KEY = 'planner-dashboard-v1';
+  const KEY = 'planner-dashboard-v2';
+  const OLD_KEY = 'planner-dashboard-v1'; // first version of the dashboard; read once, never deleted
+  const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
-  function defaults() {
-    const today = Dates.today();
-    const work = uid();
-    const lang = uid();
-    const hobby = uid();
+  function task(fields) {
     return {
-      version: 1,
-      categories: [
-        { id: work, name: 'Work', color: '#2f6f9f' },
-        { id: lang, name: 'Language learning', color: '#356854' },
-        { id: hobby, name: 'Hobbies', color: '#a0522d' },
-      ],
-      // kind: 'deadline' (something due) or 'event' (something happening)
-      deadlines: [
-        { id: uid(), kind: 'deadline', title: 'Next thing due at work', categoryId: work, due: Dates.addDays(today, 3), notes: 'Sample — edit or delete me', done: false },
-        { id: uid(), kind: 'deadline', title: 'Learn the next tense', categoryId: lang, due: Dates.addDays(today, 9), notes: 'Sample', done: false },
-        { id: uid(), kind: 'event', title: 'Hobby meetup', categoryId: hobby, due: Dates.addDays(today, 5), notes: 'Sample', done: false },
-      ],
-      dailies: [
-        { id: uid(), name: 'Thing to do every day', minutes: 20, rank: 1 },
-        { id: uid(), name: 'Another thing to do every day', minutes: 30, rank: 2 },
-        { id: uid(), name: 'Daily language practice', minutes: 15, rank: 3 },
-        { id: uid(), name: 'Optional: read for fun', minutes: 20, rank: 10 },
-      ],
-      dailyLog: {},          // { 'YYYY-MM-DD': [dailyId, ...] } — what was checked off
-      notes: [               // "important non quest" list
-        { id: uid(), text: 'To-do 1', done: false },
-        { id: uid(), text: 'To-do 2', done: false },
-      ],
-      plans: {},             // { 'YYYY-MM-DD': 'free text plan for that day' }
-      blocks: {},            // { 'YYYY-MM-DD': { 'HH:MM': 'label' } } — planner time slots
-      settings: {
-        rotationAnchor: today,
-        anchorPeriod: 1,
-        cycleLength: 8,
-        workDays: [1, 2, 3, 4, 5],
-        offDays: [],
-        workStart: '08:00',
-        workEnd: '15:30',
-        dayStart: '05:00',
-        dayEnd: '23:00',
-        soonDays: 7,
-        plannerDays: 14,
-      },
+      id: uid(),
+      name: '',
+      kind: 'repeat',   // 'repeat' = every available day, 'once' = gone after it's done
+      priority: 5,      // 1–9 priority, 10+ optional
+      minutes: 15,
+      days: [...ALL_DAYS],
+      from: '',         // earliest time of day, 'HH:MM' or ''
+      to: '',           // latest time of day
+      avoidWork: false, // not during work hours on work days
+      periods: [],      // only on these rotation periods (empty = any)
+      start: '',        // not before this date
+      due: '',          // once: due date; repeat: last day it repeats
+      notes: '',
+      ...fields,
     };
   }
 
-  // Fill in anything missing (e.g. a setting added in a later version).
+  function defaultSettings() {
+    return {
+      rotationAnchor: Dates.today(),
+      anchorPeriod: 1,
+      cycleLength: 8,
+      workDays: [1, 2, 3, 4, 5],
+      offDays: [],
+      workStart: '08:00',
+      workEnd: '15:30',
+      budgetWork: 120,  // total task minutes on a work day; optional tasks only fill what's left
+      budgetOff: 240,   // ...and on a day off
+      soonDays: 7,      // due dates start boosting priority this many days out
+    };
+  }
+
+  function defaults() {
+    const today = Dates.today();
+    return {
+      version: 2,
+      tasks: [
+        task({ name: 'Thing to do every day', priority: 1, minutes: 20 }),
+        task({ name: 'Another thing to do every day', priority: 2, minutes: 30 }),
+        task({ name: 'Language practice: learn the next tense', priority: 3, minutes: 15 }),
+        task({ name: 'Next thing due at work', kind: 'once', priority: 5, minutes: 30, due: Dates.addDays(today, 3) }),
+        task({ name: 'Read for fun', priority: 10, minutes: 20, from: '18:00' }),
+      ],
+      settings: defaultSettings(),
+      queues: {},
+      progress: {},
+    };
+  }
+
+  // Bring over data from the first version (dailies, open deadlines, the
+  // important list, check-offs and schedule settings).
+  function migrate(old) {
+    const tasks = [];
+    for (const d of old.dailies || []) {
+      tasks.push(task({ id: d.id, name: d.name, priority: Number(d.rank) || 10, minutes: Number(d.minutes) || 0 }));
+    }
+    for (const d of old.deadlines || []) {
+      if (d.done || d.kind === 'event') continue;
+      tasks.push(task({ id: d.id, name: d.title, kind: 'once', priority: 5, minutes: 30, due: d.due || '', notes: d.notes || '' }));
+    }
+    for (const n of old.notes || []) {
+      if (!n.done) tasks.push(task({ id: n.id, name: n.text, kind: 'once', priority: 10, minutes: 15 }));
+    }
+    const progress = {};
+    for (const [date, ids] of Object.entries(old.dailyLog || {})) {
+      const noon = Dates.parse(date).getTime() + 12 * 3600000;
+      progress[date] = { shown: {}, done: {} };
+      for (const id of ids) {
+        const t = tasks.find((x) => x.id === id);
+        if (t) progress[date].done[id] = { at: noon, shown: null, name: t.name, minutes: t.minutes };
+      }
+    }
+    const settings = { ...defaultSettings() };
+    for (const k of Object.keys(settings)) if (old.settings && k in old.settings) settings[k] = old.settings[k];
+    return { version: 2, tasks, settings, queues: {}, progress };
+  }
+
+  // Fill in anything missing (e.g. a field added in a later version).
   function normalize(data) {
-    const base = defaults();
-    const out = { ...base, ...data };
-    out.settings = { ...base.settings, ...(data.settings || {}) };
-    for (const key of ['categories', 'deadlines', 'dailies', 'notes']) {
-      if (!Array.isArray(out[key])) out[key] = base[key];
+    return {
+      version: 2,
+      tasks: (Array.isArray(data.tasks) ? data.tasks : []).map((t) => task(t)),
+      settings: { ...defaultSettings(), ...(data.settings || {}) },
+      queues: data.queues && typeof data.queues === 'object' ? data.queues : {},
+      progress: data.progress && typeof data.progress === 'object' ? data.progress : {},
+    };
+  }
+
+  function read(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      return null;
     }
-    for (const key of ['dailyLog', 'plans', 'blocks']) {
-      if (!out[key] || typeof out[key] !== 'object') out[key] = {};
-    }
-    return out;
   }
 
   function load() {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) return normalize(JSON.parse(raw));
-    } catch (err) {
-      console.warn('Could not read saved data, starting fresh.', err);
-    }
+    const current = read(KEY);
+    if (current) return normalize(current);
+    const old = read(OLD_KEY);
+    if (old) return normalize(migrate(old));
     return defaults();
   }
 
@@ -97,12 +139,13 @@ const Store = (() => {
   }
 
   async function restore(file) {
-    return normalize(JSON.parse(await file.text()));
+    const data = JSON.parse(await file.text());
+    return normalize(data.version === 2 ? data : migrate(data));
   }
 
   function clear() {
     try { localStorage.removeItem(KEY); } catch (err) { /* nothing to clear */ }
   }
 
-  return { uid, defaults, load, save, download, restore, clear };
+  return { uid, task, defaults, load, save, download, restore, clear, ALL_DAYS };
 })();
