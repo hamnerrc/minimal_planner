@@ -225,12 +225,25 @@ details > summary { cursor: pointer; }
 /* ---------- task editor ---------- */
 dialog {
   border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text);
-  width: min(620px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 1.3rem 1.4rem;
+  width: min(860px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 1.1rem 1.4rem;
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.18);
 }
 dialog:focus { outline: none; }
 dialog::backdrop { background: rgb(0 0 0 / 0.3); }
-dialog form { display: grid; gap: 1.3rem; }
+dialog form { display: grid; gap: 1rem; }
+.edit-head { display: flex; align-items: center; gap: 0.6rem; }
+.edit-head .title-input { flex: 1; }
+.close {
+  flex: none; width: 2.2rem; height: 2.2rem; background: none; border: none; border-radius: var(--radius);
+  font-size: 1.4rem; line-height: 1; color: var(--muted); cursor: pointer;
+}
+.close:hover { background: var(--fill); color: var(--text); }
+.edit-cols { display: grid; grid-template-columns: minmax(220px, 260px) 1fr; gap: 1rem 2rem; align-items: start; }
+.edit-col { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+.edit-col textarea { resize: vertical; }
+.due-stack { display: grid; gap: 0.3rem; }
+.due-stack .cal { max-width: 260px; }
+.due-stack .due-side { padding-top: 0.2rem; min-width: 0; }
 .title-input { font-size: 1.25rem; font-weight: 600; border: none; border-bottom: 1px solid var(--line); border-radius: 0; padding: 0.3rem 0; }
 .title-input:focus { border-bottom-color: var(--ink); }
 .field { display: grid; gap: 0.5rem; margin: 0; }
@@ -241,13 +254,12 @@ dialog form { display: grid; gap: 1.3rem; }
 .big { font-size: 1.1rem; font-weight: 600; }
 .legend { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.6rem; }
 .swatch { width: 0.9rem; height: 0.9rem; border-radius: 2px; background: var(--fill); box-shadow: inset 0 -3px 0 var(--faint); }
-.more { border-top: 1px solid var(--line); padding-top: 0.9rem; }
-.more > summary { font-weight: 600; font-size: 0.9rem; }
-.more > summary .muted { font-weight: 400; }
-.more-body { display: grid; gap: 1.2rem; margin-top: 1rem; }
-.dialog-actions { display: flex; align-items: center; gap: 1rem; padding-top: 0.4rem; }
+.dialog-actions { display: flex; align-items: center; gap: 1rem; padding-top: 0.6rem; border-top: 1px solid var(--line); }
 .dialog-actions .btn { min-width: 5rem; }
 
+@media (max-width: 680px) {
+  .edit-cols { grid-template-columns: 1fr; }
+}
 @media (max-width: 520px) {
   .due-side { padding-top: 0; }
   .task-row { gap: 0.6rem; }

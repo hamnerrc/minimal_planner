@@ -17,8 +17,9 @@ Everything is saved in this browser's local storage, on this computer only.
   one-time or every day, and which time window they get, so a batch of daily
   tasks needs no editing. Click a task to give it a due date on the calendar and
   say how much work it is in total. The planner splits that over the days before
-  it's due and shades those days on the calendar. Time of day is on the main
-  form; repeating, start date and notes are under "More". Click outside the editor to cancel, Cmd/Ctrl+Enter to save.
+  it's due and shades those days on the calendar. Every setting is on one
+  screen (nothing folded away) and every change saves as you make it; there's no
+  Save button. Close with ×, Esc, Enter in the name, or a click outside.
   Time windows, days off, work schedule, daily limits and backup are folded below
   the list, and folds you leave open stay open next time.
 - **Time windows**: saved windows such as "Daytime, 8:00 am–8:00 pm" (built in).

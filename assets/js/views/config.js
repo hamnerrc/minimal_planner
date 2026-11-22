@@ -466,7 +466,8 @@ const ConfigView = (() => {
   }
 
   // ---------------------------------------------------------------- task editor
-  // Edits a draft; nothing is saved until Save.
+  // Every change is saved as you make it. Close (×, Esc, Enter in the name,
+  // or a click outside) just closes; there's no Save button.
   const dialog = $('#task-dialog');
   const form = $('#task-form');
   let editing = null;
@@ -501,15 +502,15 @@ const ConfigView = (() => {
       notes: t.notes,
       cal: null, // which small calendar is open
     };
-    draft.moreOpen = moreSummary().length > 0;
     for (const k of ['due', 'start', 'until']) delete calMonth[k];
-    drawForm();
+    drawForm(false);
     dialog.showModal();
     if (!task) form.querySelector('[data-k=name]').focus();
     else dialog.focus();
   }
 
-  function drawForm() {
+  function drawForm(save = true) {
+    if (save) persist();
     const focused = document.activeElement?.dataset?.k;
     const scroll = dialog.scrollTop;
     form.replaceChildren(...formContents().flat(Infinity).filter((c) => c != null && c !== false));
@@ -535,24 +536,45 @@ const ConfigView = (() => {
 
   function formContents() {
     const d = draft;
+    const once = d.mode === 'once';
     return [
-      h('input', {
-        class: 'title-input', name: 'name', 'data-k': 'name', required: true, autocomplete: 'off',
-        placeholder: 'What needs doing?', 'aria-label': 'Task', value: d.name, oninput: (e) => { d.name = e.target.value; },
-      }),
-      d.mode === 'once' ? [dueSection(), workSection()] : [untilSection(), field('How long each time?', minutesField())],
-      timeSection(),
-      moreSection(),
+      h('div', { class: 'edit-head' },
+        h('input', {
+          class: 'title-input', name: 'name', 'data-k': 'name', autocomplete: 'off',
+          placeholder: 'What needs doing?', 'aria-label': 'Task', value: d.name,
+          oninput: (e) => { d.name = e.target.value; persist(); },
+          onkeydown: (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); dialog.close(); } },
+        }),
+        h('button', { type: 'button', class: 'close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => dialog.close() }, '×')),
+      h('div', { class: 'edit-cols' },
+        h('div', { class: 'edit-col' }, once ? dueSection() : untilSection()),
+        h('div', { class: 'edit-col' },
+          repeatsField(),
+          once ? workSection() : field('How long each time?', minutesField()),
+          timeSection(),
+          field('Don’t show before', datePick('start', () => d.start, (v) => { d.start = v; }, 'Show right away')),
+          h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Notes'),
+            h('textarea', { rows: 1, 'data-k': 'notes', value: d.notes, oninput: (e) => { d.notes = e.target.value; persist(); } })))),
       h('div', { class: 'dialog-actions' },
         editing && h('button', { type: 'button', class: 'link danger', onclick: () => removeTask(editing) }, 'Delete'),
         editing && editing.kind === 'once' && !editing.doneOn && h('button', {
           type: 'button', class: 'link',
-          onclick: () => { Engine.finish(App.state, App.today, editing); dialog.close(); App.commit(); },
+          onclick: () => { Engine.finish(App.state, App.today, editing); dialog.close(); },
         }, 'Mark finished'),
         h('span', { class: 'spacer' }),
-        h('button', { type: 'button', class: 'btn ghost', onclick: () => dialog.close() }, 'Cancel'),
-        h('button', { class: 'btn' }, 'Save')),
+        h('span', { class: 'muted small' }, 'Changes save automatically')),
     ];
+  }
+
+  function repeatsField() {
+    const d = draft;
+    return field('Repeats',
+      seg([['once', 'No'], ['every', 'Every day'], ['some', 'Some days']].map(([v, label]) =>
+        opt(label, d.mode === v, redraw(() => setMode(v)), `mode-${v}`))),
+      (d.mode === 'some' || (d.mode === 'once' && d.days.length < 7)) && seg(Dates.WEEKDAYS.map((name, i) => opt(name, d.days.includes(i), redraw(() => {
+        d.days = d.days.includes(i) ? d.days.filter((x) => x !== i) : sortDays([...d.days, i]);
+      }), `day-${i}`))),
+      !d.days.length && h('p', { class: 'danger small' }, 'Pick at least one day.'));
   }
 
   function dueSection() {
@@ -561,7 +583,7 @@ const ConfigView = (() => {
     const plan = Number(d.total) > 0 ? Engine.sessions(App.state, draftTask(), start) : [];
     const workDays = new Map(plan.map((x) => [x.date, x.minutes]));
     return field('Due',
-      h('div', { class: 'due-row' },
+      h('div', { class: 'due-stack' },
         calendar({
           key: 'due', start: d.due, redraw: drawForm,
           isOn: (x) => x === d.due,
@@ -580,7 +602,7 @@ const ConfigView = (() => {
     const d = draft;
     const ended = d.until && d.until < App.today;
     return field('Last day',
-      h('div', { class: 'due-row' },
+      h('div', { class: 'due-stack' },
         calendar({
           key: 'until', start: d.until, redraw: drawForm,
           isOn: (x) => x === d.until,
@@ -645,16 +667,6 @@ const ConfigView = (() => {
         }), 'min'));
   }
 
-  function moreSummary() {
-    const d = draft;
-    const out = [];
-    if (d.mode === 'every') out.push('repeats every day');
-    if (d.mode === 'some') out.push(`repeats ${daysText(d.days)}`);
-    if (d.start && d.start > App.today) out.push(`from ${Dates.short(d.start)}`);
-    if (d.notes) out.push('notes');
-    return out;
-  }
-
   function setMode(mode) {
     const d = draft;
     if (mode === d.mode) return;
@@ -711,25 +723,6 @@ const ConfigView = (() => {
     ];
   }
 
-  function moreSection() {
-    const d = draft;
-    const s = App.state.settings;
-    const summary = moreSummary();
-    return h('details', { class: 'more', open: d.moreOpen, ontoggle: (e) => { d.moreOpen = e.target.open; } },
-      h('summary', {}, 'More', summary.length > 0 && h('span', { class: 'muted' }, ` · ${summary.join(' · ')}`)),
-      h('div', { class: 'more-body' },
-        field('Repeats',
-          seg([['once', 'No'], ['every', 'Every day'], ['some', 'Some days']].map(([v, label]) =>
-            opt(label, d.mode === v, redraw(() => setMode(v)), `mode-${v}`))),
-          (d.mode === 'some' || (d.mode === 'once' && d.days.length < 7)) && seg(Dates.WEEKDAYS.map((name, i) => opt(name, d.days.includes(i), redraw(() => {
-            d.days = d.days.includes(i) ? d.days.filter((x) => x !== i) : sortDays([...d.days, i]);
-          }), `day-${i}`))),
-          !d.days.length && h('p', { class: 'danger small' }, 'Pick at least one day.')),
-        field('Don’t show before', datePick('start', () => d.start, (v) => { d.start = v; }, 'Show right away')),
-        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Notes'),
-          h('textarea', { rows: 2, 'data-k': 'notes', value: d.notes, oninput: (e) => { d.notes = e.target.value; } }))));
-  }
-
   // One click, no confirmation: an Undo bar shows for a few seconds instead.
   let undoable = null; // { text, run }
   let undoTimer = null;
@@ -767,7 +760,32 @@ const ConfigView = (() => {
       h('button', { class: 'link', 'data-k': 'undo', onclick: runUndo }, 'Undo'));
   }
 
-  // Click outside the box to cancel; Cmd/Ctrl+Enter saves from anywhere.
+  // Write the draft onto the task. Half-finished input (blank name, no days
+  // picked) leaves the old value in place until it's valid.
+  function persist() {
+    if (!editing) return;
+    const d = draft;
+    const once = d.mode === 'once';
+    const total = Math.max(0, Number(d.total) || 0);
+    const data = {
+      kind: once ? 'once' : 'repeat',
+      minutes: once ? (total || 15) : Math.max(0, Number(d.minutes) || 0),
+      total: once ? total : 0,
+      perDay: once && d.ownPace ? Math.max(5, Number(d.perDay) || 0) : 0,
+      from: d.from,
+      to: d.to,
+      window: d.window,
+      start: d.start,
+      due: once ? d.due : d.until,
+      notes: d.notes.trim(),
+    };
+    if (d.name.trim()) data.name = d.name.trim();
+    if (d.days.length) data.days = d.mode === 'every' ? [...ALL_DAYS] : sortDays(d.days);
+    Object.assign(editing, data);
+    App.commit({ quiet: true });
+  }
+
+  // Click outside the box, Esc, or Cmd/Ctrl+Enter closes it.
   let downOutside = false;
   const outside = (e) => {
     const r = dialog.getBoundingClientRect();
@@ -779,37 +797,10 @@ const ConfigView = (() => {
     downOutside = false;
   });
   document.addEventListener('keydown', (e) => {
-    if (dialog.open && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); form.requestSubmit(); }
+    if (dialog.open && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); dialog.close(); }
   });
-
-  form.addEventListener('submit', (e) => {
-    const d = draft;
-    if (!d.days.length) {
-      e.preventDefault();
-      d.moreOpen = true;
-      drawForm();
-      return;
-    }
-    const once = d.mode === 'once';
-    const total = Math.max(0, Number(d.total) || 0);
-    const data = {
-      name: d.name.trim(),
-      kind: once ? 'once' : 'repeat',
-      minutes: once ? (total || 15) : Math.max(0, Number(d.minutes) || 0),
-      total: once ? total : 0,
-      perDay: once && d.ownPace ? Math.max(5, Number(d.perDay) || 0) : 0,
-      days: d.mode === 'every' ? [...ALL_DAYS] : sortDays(d.days),
-      from: d.from,
-      to: d.to,
-      window: d.window,
-      start: d.start,
-      due: once ? d.due : d.until,
-      notes: d.notes.trim(),
-    };
-    if (editing) Object.assign(editing, data);
-    else App.state.tasks.push(Store.task(data));
-    App.commit();
-  });
+  form.addEventListener('submit', (e) => e.preventDefault());
+  dialog.addEventListener('close', () => { editing = null; App.render(); });
 
   return { render };
 })();
