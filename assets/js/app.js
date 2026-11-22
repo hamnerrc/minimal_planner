@@ -1,7 +1,7 @@
-// Controller: holds the state, switches tabs (#rn, #config, #meta), keeps
+// Controller: holds the state, switches tabs (#rn, #config), keeps
 // today's queue in place, and re-renders the active tab.
 const App = (() => {
-  const views = { rn: RnView, config: ConfigView, meta: MetaView };
+  const views = { rn: RnView, config: ConfigView };
   const root = Dom.$('#view');
 
   const app = {
@@ -33,8 +33,11 @@ const App = (() => {
       const tab = currentTab();
       document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('active', a.hash === `#${tab}`));
       document.body.dataset.tab = tab;
+      // keep keyboard focus on the same control across a redraw
+      const focused = document.activeElement?.dataset?.k;
       root.replaceChildren();
       views[tab].render(root);
+      if (focused) root.querySelector(`[data-k="${focused}"]`)?.focus({ preventScroll: true });
     },
 
     // Redraw only if that tab is showing (used by timers).

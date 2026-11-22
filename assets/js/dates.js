@@ -50,9 +50,29 @@ const Dates = (() => {
     return `${d.getMonth() + 1}/${d.getDate()}`;
   }
 
+  // "Fri, Nov 27" (the year is added when it isn't this year)
   function long(s) {
     const d = parse(s);
-    return `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+    const year = d.getFullYear() === new Date().getFullYear() ? '' : `, ${d.getFullYear()}`;
+    return `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}${year}`;
+  }
+
+  // "today", "tomorrow", "in 5 days", "3 days ago"
+  function friendly(s, from = today()) {
+    const n = diffDays(from, s);
+    if (n === 0) return 'today';
+    if (n === 1) return 'tomorrow';
+    if (n === -1) return 'yesterday';
+    if (n < 0) return `${-n} days ago`;
+    if (n < 14) return `in ${n} days`;
+    if (n < 60) return `in ${Math.round(n / 7)} weeks`;
+    return `in ${Math.round(n / 30)} months`;
+  }
+
+  // The next date after `from` that falls on weekday `wd` (0 = Sun).
+  function nextWeekday(from, wd) {
+    const n = ((wd - weekday(from) + 7) % 7) || 7;
+    return addDays(from, n);
   }
 
   function relative(s, from = today()) {
@@ -83,6 +103,6 @@ const Dates = (() => {
 
   return {
     iso, parse, today, addDays, diffDays, excelSerial, weekday, weekdayName,
-    short, long, relative, toMinutes, fromMinutes, clock, WEEKDAYS,
+    short, long, relative, friendly, nextWeekday, toMinutes, fromMinutes, clock, WEEKDAYS,
   };
 })();

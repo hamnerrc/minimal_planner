@@ -10,59 +10,13 @@
   <nav class="tabs" aria-label="Sections">
     <a href="#rn">RN</a>
     <a href="#config">Configuration</a>
-    <a href="#meta">Meta</a>
   </nav>
 
   <main id="view"></main>
 
-  <!-- Add / edit a task (used by Configuration) -->
-  <dialog id="task-dialog">
-    <form method="dialog" id="task-form">
-      <h2 id="task-dialog-title">New task</h2>
-      <label>Task <input name="name" required autocomplete="off"></label>
-      <div class="form-grid">
-        <label>Type
-          <select name="kind">
-            <option value="repeat">Repeats</option>
-            <option value="once">One time</option>
-          </select>
-        </label>
-        <label>Priority <input type="number" name="priority" min="1" step="any" required></label>
-        <label>Minutes <input type="number" name="minutes" min="0" step="5" required></label>
-      </div>
-      <p class="muted small">Priority 1–9: always queued, near that spot. 10+: optional, fills spare time.</p>
-
-      <fieldset class="weekdays">
-        <legend>Days</legend>
-        <label class="check"><input type="checkbox" name="day" value="0"> Sun</label>
-        <label class="check"><input type="checkbox" name="day" value="1"> Mon</label>
-        <label class="check"><input type="checkbox" name="day" value="2"> Tue</label>
-        <label class="check"><input type="checkbox" name="day" value="3"> Wed</label>
-        <label class="check"><input type="checkbox" name="day" value="4"> Thu</label>
-        <label class="check"><input type="checkbox" name="day" value="5"> Fri</label>
-        <label class="check"><input type="checkbox" name="day" value="6"> Sat</label>
-      </fieldset>
-
-      <div class="form-grid">
-        <label>Not before <input type="time" name="from"></label>
-        <label>Not after <input type="time" name="to"></label>
-      </div>
-      <label class="check"><input type="checkbox" name="avoidWork"> Not during work hours</label>
-      <fieldset class="weekdays" id="task-periods"></fieldset>
-
-      <div class="form-grid">
-        <label>Starts on <input type="date" name="start"></label>
-        <label id="task-due-label">Due date <input type="date" name="due"></label>
-      </div>
-      <label>Notes (shown on RN) <textarea name="notes" rows="2"></textarea></label>
-
-      <div class="dialog-actions">
-        <button type="button" class="btn ghost danger" id="task-delete">Delete</button>
-        <span class="spacer"></span>
-        <button type="button" class="btn ghost" id="task-cancel">Cancel</button>
-        <button class="btn">Save</button>
-      </div>
-    </form>
+  <!-- Add / edit a task (filled in by Configuration) -->
+  <dialog id="task-dialog" tabindex="-1">
+    <form method="dialog" id="task-form"></form>
   </dialog>
 
   <script src="assets/js/dates.js"></script>
@@ -71,7 +25,6 @@
   <script src="assets/js/engine.js"></script>
   <script src="assets/js/views/rn.js"></script>
   <script src="assets/js/views/config.js"></script>
-  <script src="assets/js/views/meta.js"></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

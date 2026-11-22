@@ -6,35 +6,82 @@
 //    day) and saved. Clicking Done never reorders it.
 //  - If tasks are added mid-day they join the END of today's queue; deleted
 //    or no-longer-available tasks drop out. Priority changes apply tomorrow.
-//  - Order uses the spreadsheet's date-seeded shuffle: priority tasks (rank
-//    under 10) stay near their rank ±1.5, optional tasks (10+) land randomly.
-//  - Tasks with a due date climb in priority as the date gets close.
+//  - Rank is just the task's place in your list (task.order). Tasks below the
+//    "if there's time" line (task.optional) are optional.
+//  - Must-do tasks go in exactly the order you put them. Optional tasks come
+//    after, in a different order each day (seeded by the date and the name).
+//  - Tasks with a due date climb one place per day as the date gets close;
+//    an optional task with a due date that close becomes a must-do.
 //  - Optional tasks are only queued while they fit in the day's time budget.
-//  - Time windows and "not during work" don't reorder anything; they only
+//  - Time windows don't reorder anything; they only
 //    decide whether the next queued task can be shown right now.
 const Engine = (() => {
   const minutes = (t) => Math.max(0, Number(t.minutes) || 0);
+  const roundUp5 = (m) => Math.ceil(m / 5) * 5;
+
+  // ---------------------------------------------------------------- spreading work
+  // A one-time task can have a total amount of work (task.total, minutes).
+  // It's split over the days left before the due date, recalculated every day
+  // from what's actually been done, so a missed day just makes later days a
+  // bit longer. task.perDay overrides the automatic daily amount.
+  const isSpread = (t) => t.kind === 'once' && Number(t.total) > 0;
+  const ONE_SITTING = 60;   // up to this much is done in one go
+  const MIN_SESSION = 30;   // longer work is never cut into smaller pieces than this
+  const NO_DUE_SESSION = 60; // daily amount when there's no due date
+
+  function canWorkOn(task, date) {
+    return task.days.includes(Dates.weekday(date)) && (!task.start || date >= task.start);
+  }
+
+  function workedBefore(state, task, date) {
+    let m = 0;
+    for (const [d, p] of Object.entries(state.progress)) {
+      if (d < date && p.done && p.done[task.id]) m += Number(p.done[task.id].minutes) || 0;
+    }
+    return m;
+  }
+
+  // How the remaining work splits up, as of `date`.
+  function split(state, task, date) {
+    const total = Math.max(0, Number(task.total) || 0);
+    const worked = workedBefore(state, task, date);
+    const remaining = Math.max(0, total - worked);
+    let daysLeft = null;
+    if (task.due) {
+      daysLeft = 0;
+      for (let d = date; d <= task.due && daysLeft < 1000; d = Dates.addDays(d, 1)) if (canWorkOn(task, d)) daysLeft++;
+    }
+    let auto;
+    if (remaining <= ONE_SITTING) auto = remaining;
+    else if (daysLeft == null) auto = NO_DUE_SESSION;
+    else if (daysLeft <= 1) auto = remaining;
+    else auto = Math.max(MIN_SESSION, roundUp5(remaining / daysLeft));
+    const perDay = Number(task.perDay) > 0 ? Number(task.perDay) : auto;
+    return { total, worked, remaining, daysLeft, auto, perDay, today: Math.min(remaining, perDay) };
+  }
+
+  // The days the work will land on from `date`: [{ date, minutes }].
+  function sessions(state, task, date) {
+    const { remaining, perDay } = split(state, task, date);
+    const out = [];
+    let left = remaining;
+    for (let d = date, i = 0; left > 0 && perDay > 0 && i < 730; d = Dates.addDays(d, 1), i++) {
+      if (!canWorkOn(task, d)) continue;
+      const m = Math.min(left, perDay);
+      out.push({ date: d, minutes: m });
+      left -= m;
+    }
+    return out;
+  }
+
+  // Minutes this task takes on `date`.
+  function sessionMinutes(state, task, date) {
+    return isSpread(task) ? split(state, task, date).today : minutes(task);
+  }
 
   // ---------------------------------------------------------------- calendar
   function isWorkDay(date, s) {
     return s.workDays.includes(Dates.weekday(date)) && !s.offDays.includes(date);
-  }
-
-  // Which period of the rotation a date falls on. The rotation only moves
-  // forward on work days, so weekends and days off don't use up a period.
-  function rotation(date, s) {
-    if (!isWorkDay(date, s)) return null;
-    const span = Dates.diffDays(s.rotationAnchor, date);
-    let n = 0;
-    if (span >= 0) {
-      // work days in (anchor, date]
-      for (let i = 1; i <= span; i++) if (isWorkDay(Dates.addDays(s.rotationAnchor, i), s)) n++;
-    } else {
-      // work days in [date, anchor)
-      for (let i = 0; i < -span; i++) if (isWorkDay(Dates.addDays(date, i), s)) n--;
-    }
-    const len = Math.max(1, s.cycleLength);
-    return ((((s.anchorPeriod - 1 + n) % len) + len) % len) + 1;
   }
 
   // ---------------------------------------------------------------- queue building
@@ -55,18 +102,24 @@ const Engine = (() => {
       return false;
     }
     if (!task.days.includes(Dates.weekday(date))) return false;
-    if (task.periods.length) {
-      const p = rotation(date, s);
-      if (!p || !task.periods.includes(p)) return false;
-    }
     return true;
   }
 
+  // Your list, top first: must-do tasks, then the ones below the line.
+  const byOrder = (a, b) => (Number(!!a.optional) - Number(!!b.optional)) || (a.order - b.order);
+
+  // Each must-do task's place in the list, 1 = top.
+  function places(state) {
+    const must = state.tasks.filter((t) => !t.optional).sort(byOrder);
+    return { at: new Map(must.map((t, i) => [t.id, i + 1])), count: must.length };
+  }
+
   // Lower = sooner. Each day inside the "due soon" window moves it up one.
-  function effectiveRank(task, date, s) {
-    let rank = Number(task.priority) || 10;
-    if (task.due) rank -= Math.max(0, s.soonDays - Dates.diffDays(date, task.due));
-    return rank;
+  function effectiveRank(task, date, s, pl) {
+    const boost = task.due ? Math.max(0, s.soonDays - Dates.diffDays(date, task.due)) : 0;
+    const must = !task.optional || boost > 0;
+    const base = task.optional ? pl.count + 1 : pl.at.get(task.id);
+    return { must, rank: base - boost };
   }
 
   // Full ordered plan for a date, with the reasoning attached (used by the
@@ -74,24 +127,20 @@ const Engine = (() => {
   function plan(state, date) {
     const s = state.settings;
     const serial = Dates.excelSerial(date);
+    const pl = places(state);
     const scored = state.tasks
       .filter((t) => isAvailableOn(t, date, s))
-      .map((t) => ({ task: t, rank: effectiveRank(t, date, s), j: jitter(t.name, serial) }));
+      .map((t) => ({ task: t, ...effectiveRank(t, date, s, pl), j: jitter(t.name, serial) }));
 
-    const priority = scored.filter((x) => x.rank < 10);
-    priority.forEach((x) => { x.score = x.rank + (x.j - 0.5) * 3; });
-    const scores = priority.map((x) => x.score);
-    const lo = scores.length ? Math.min(...scores) - 1 : 0;
-    const hi = scores.length ? Math.max(...scores) + 1 : 10;
-    const optional = scored.filter((x) => x.rank >= 10);
-    optional.forEach((x) => { x.score = lo + x.j * (hi - lo); });
-
-    const ordered = [...priority, ...optional].sort((a, b) => a.score - b.score || a.task.id.localeCompare(b.task.id));
+    const priority = scored.filter((x) => x.must).sort((a, b) => a.rank - b.rank || a.task.order - b.task.order);
+    const optional = scored.filter((x) => !x.must).sort((a, b) => a.j - b.j || a.task.id.localeCompare(b.task.id));
+    const ordered = [...priority, ...optional];
     const budget = isWorkDay(date, s) ? s.budgetWork : s.budgetOff;
-    let left = budget - priority.reduce((m, x) => m + minutes(x.task), 0);
+    const mins = (t) => sessionMinutes(state, t, date);
+    let left = budget - priority.reduce((m, x) => m + mins(x.task), 0);
     for (const x of ordered) {
-      if (x.rank < 10) x.included = true;
-      else if (minutes(x.task) <= left) { x.included = true; left -= minutes(x.task); }
+      if (x.must) x.included = true;
+      else if (mins(x.task) <= left) { x.included = true; left -= mins(x.task); }
       else x.included = false;
     }
     return { items: ordered, budget };
@@ -120,18 +169,23 @@ const Engine = (() => {
     return true;
   }
 
+  // You reordered the list: today's not-done tasks follow the new order
+  // right away. What's already done stays where it was.
+  function reorderToday(state, date) {
+    const q = state.queues[date];
+    if (!q) return;
+    const done = progressFor(state, date).done;
+    const fresh = plan(state, date).items.filter((x) => x.included).map((x) => x.task.id);
+    q.ids = [...q.ids.filter((id) => done[id]), ...fresh.filter((id) => !done[id])];
+  }
+
   // ---------------------------------------------------------------- right now
   // Can this task be done at minute-of-day `now`? 'open', 'later' (with the
   // minute it opens) or 'closed' for the rest of today.
   function windowState(task, date, now, s) {
     const from = task.from ? Dates.toMinutes(task.from) : 0;
     const to = task.to ? Dates.toMinutes(task.to) : 24 * 60;
-    let t = Math.max(now, from);
-    if (task.avoidWork && isWorkDay(date, s)) {
-      const ws = Dates.toMinutes(s.workStart);
-      const we = Dates.toMinutes(s.workEnd);
-      if (t >= ws && t < we) t = we;
-    }
+    const t = Math.max(now, from);
     if (t >= to) return { state: 'closed' };
     return t === now ? { state: 'open' } : { state: 'later', at: t };
   }
@@ -163,8 +217,20 @@ const Engine = (() => {
   function complete(state, date, task) {
     const p = progressFor(state, date);
     // name/minutes are copied so history survives the task being edited or deleted
-    p.done[task.id] = { at: Date.now(), shown: p.shown[task.id] || null, name: task.name, minutes: minutes(task) };
-    if (task.kind === 'once') task.doneOn = date;
+    const m = sessionMinutes(state, task, date);
+    p.done[task.id] = { at: Date.now(), shown: p.shown[task.id] || null, name: task.name, minutes: m };
+    if (task.kind !== 'once') return;
+    if (!isSpread(task) || workedBefore(state, task, date) + m >= Number(task.total)) task.doneOn = date;
+  }
+
+  // "It's all done", even if the plan had more sessions left.
+  function finish(state, date, task) {
+    const p = progressFor(state, date);
+    if (!p.done[task.id]) {
+      const m = isSpread(task) ? split(state, task, date).remaining : minutes(task);
+      p.done[task.id] = { at: Date.now(), shown: p.shown[task.id] || null, name: task.name, minutes: m };
+    }
+    task.doneOn = date;
   }
 
   function undo(state, date, task) {
@@ -180,7 +246,8 @@ const Engine = (() => {
   }
 
   return {
-    isWorkDay, rotation, isAvailableOn, effectiveRank, plan, ensureQueue,
-    windowState, next, markShown, complete, undo, actualMinutes, progressFor,
+    isWorkDay, isAvailableOn, byOrder, plan, ensureQueue, reorderToday,
+    windowState, next, markShown, complete, finish, undo,
+    isSpread, split, sessions, sessionMinutes, workedBefore, actualMinutes, progressFor,
   };
 })();

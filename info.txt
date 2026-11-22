@@ -2,8 +2,8 @@ PLANNER - OPEN QUESTIONS FOR FUTURE DEVELOPMENT
 ================================================
 
 Design rule: complexity in the backend, simplicity at the point of action.
-RN shows one task and a Done button. Configuration holds the knobs. Meta
-holds the numbers.
+RN shows one task and a Done button. Configuration holds the knobs.
+The Meta tab and progress indicators were removed: fewer things to think about.
 
 These are the places where I had to guess. Answer the ones you care about
 and the next version can follow your answers.
@@ -23,9 +23,9 @@ and the next version can follow your answers.
 
 2. QUEUE STABILITY VS. EDITS
    Today's queue is locked when the page first opens that day. Mid-day:
-   new tasks join the END, deleted or no-longer-available tasks drop out,
-   and priority changes wait until tomorrow.
-   - Is that right, or should a new priority-1 task jump to the front?
+   new tasks join the END, deleted or no-longer-available tasks drop out.
+   Dragging tasks in the list re-orders the rest of today immediately.
+   - Should a new task go to the top instead of the bottom of the list?
    - Should there be a manual "rebuild today's queue" button in
      Configuration for when you change a lot at once?
 
@@ -37,12 +37,12 @@ and the next version can follow your answers.
      carry over?
    - Should one-time tasks that keep getting missed climb in priority?
 
-4. PRIORITY AND RANDOMIZATION
-   Kept from the spreadsheet: priority 1-9 shifts by up to ±1.5 per day;
-   10+ is optional and placed randomly; seeded by the date and task name.
-   - Should some tasks be pinned to a fixed spot (always first)?
+4. ORDER
+   Priority numbers are gone: the list order is the order. Tasks above the
+   "if there's time" line go exactly in that order; tasks below it are
+   shuffled daily. (The spreadsheet's ±1.5 daily wobble was dropped.)
    - Should tasks be able to depend on each other (B only after A)?
-   - Due dates add 1 rank per day inside the window (default 7 days). Is that
+   - Due dates move a task up 1 place per day in the last 7 days. Is that
      the right strength?
 
 5. DURATIONS AND THE DAILY BUDGET
